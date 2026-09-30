@@ -1,0 +1,89 @@
+# Publishes @payments-lk/react-native to npm when a version tag is pushed. The Payments.lk
+# monorepo's release job pushes the tag with the release (CONTRIBUTING.md).
+#
+# npm trusts this workflow file in this repository (trusted publishing), so no
+# npm token is stored here, and every version carries provenance that names the
+# commit and the workflow that built it; `npm audit signatures` checks it. An
+# NPM_TOKEN secret is used only while one is set: npm lets a trusted publisher be
+# configured only for a package that already exists, so the very first version
+# needs a short lived token, which is then deleted.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write # the GitHub release
+  id-token: write # trusted publishing and provenance
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: npm
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      # Trusted publishing needs npm 11.5.1 or later.
+      - name: Update npm
+        run: npm install -g npm@^11.5.1
+
+      - name: Check the tag names the package's version
+        run: |
+          VERSION="$(node -p 'require("./package.json").version')"
+          if [ "v$VERSION" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::The tag is $GITHUB_REF_NAME but package.json says $VERSION."
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Install
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      # Safe to run again: a version already on npm is left alone.
+      - name: Publish to npm
+        run: |
+          if npm view "@payments-lk/react-native@$VERSION" version > /dev/null 2>&1; then
+            echo "@payments-lk/react-native@$VERSION is already on npm."
+          else
+            npm publish --provenance --access public
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: GitHub release
+        run: |
+          awk -v v="$VERSION" 'index($0, "## " v " ") == 1 { on = 1; next } on && /^## / { exit } on { print }' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          if [ ! -s "$RUNNER_TEMP/notes.md" ]; then
+            echo "::error::CHANGELOG.md has no section for $VERSION."
+            exit 1
+          fi
+          printf '\nInstall: `npm install @payments-lk/react-native@%s`\n' "$VERSION" >> "$RUNNER_TEMP/notes.md"
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            echo "The release for $GITHUB_REF_NAME exists."
+          else
+            gh release create "$GITHUB_REF_NAME" --verify-tag --title "React Native $VERSION" --notes-file "$RUNNER_TEMP/notes.md"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}

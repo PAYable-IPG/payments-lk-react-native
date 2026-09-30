@@ -1,0 +1,47 @@
+{
+  "name": "@payments-lk/react-native",
+  "version": "0.1.1",
+  "description": "Open a Payments.lk hosted checkout from a React Native app and get the outcome back through your app's own URL scheme.",
+  "keywords": [
+    "payments",
+    "payments.lk",
+    "payable",
+    "sri lanka",
+    "lkr",
+    "checkout",
+    "react-native",
+    "expo"
+  ],
+  "homepage": "https://payments.lk/developers/sdks#react-native",
+  "bugs": {
+    "url": "https://github.com/PAYable-IPG/payments-lk-react-native/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PAYable-IPG/payments-lk-react-native.git"
+  },
+  "author": "Payments.lk <hello@payments.lk> (https://payments.lk)",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "react-native": "./dist/index.js",
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.test.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vitest": "^4.1.11"
+  }
+}
